@@ -1,0 +1,14 @@
+[package]
+name = "vox3d"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+winit = "0.28"
+wgpu = "0.17"
+cgmath = "0.18"
+env_logger = "0.10"
+log = "0.4"
+pollster = "0.3"
+bytemuck = { version = "1.12", features = [ "derive" ] }
+noise = "0.8"
