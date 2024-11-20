@@ -191,7 +191,14 @@ impl State {
         );
 
         // Create some test vertices for now
-        let vertices = vec![Vertex::create_cube_vertices(0.0, 0.0, 0.0)].concat();
+        let vertices = vec![
+            Vertex::create_cube_vertices(0.0, 0.0, 0.0, [1.0, 0.0, 0.0]), // Red cube
+            Vertex::create_cube_vertices(1.0, 0.0, -1.0, [0.0, 1.0, 0.0]), // Green cube
+            Vertex::create_cube_vertices(-1.0, 0.0, -1.0, [0.0, 0.0, 1.0]), // Blue cube
+            Vertex::create_cube_vertices(0.0, 1.0, -0.5, [1.0, 1.0, 0.0]), // Yellow cube
+            Vertex::create_cube_vertices(0.0, -1.0, -0.5, [1.0, 0.0, 1.0]) // Purple cube
+        ].concat();
+
         let num_vertices = vertices.len() as u32;
 
         let vertex_buffer = device.create_buffer_init(
