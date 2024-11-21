@@ -12,17 +12,22 @@ use cgmath::{ perspective, Deg, Matrix4, Point3, SquareMatrix, Vector3 };
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CameraUniform {
     view_proj: [[f32; 4]; 4],
+    camera_pos: [f32; 3],
+    _padding: u32, // Necessary for alignment
 }
 
 impl CameraUniform {
     fn new() -> Self {
         Self {
             view_proj: Matrix4::identity().into(),
+            camera_pos: [0.0, 0.0, 0.0],
+            _padding: 0,
         }
     }
 
     fn update_view_proj(&mut self, camera: &Camera) {
         self.view_proj = camera.build_view_projection_matrix().into();
+        self.camera_pos = camera.position.into();
     }
 }
 
@@ -91,6 +96,8 @@ impl RenderState {
 
         // New camera setup
         let camera = Camera::new(size.width, size.height);
+
+        // Create camera uniform and buffer
         let mut camera_uniform = CameraUniform::new();
         camera_uniform.update_view_proj(&camera);
 
@@ -102,12 +109,13 @@ impl RenderState {
             })
         );
 
+        // Create bind group layout
         let camera_bind_group_layout = device.create_bind_group_layout(
             &(wgpu::BindGroupLayoutDescriptor {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStages::VERTEX,
+                        visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT, // Note: added FRAGMENT
                         ty: wgpu::BindingType::Buffer {
                             ty: wgpu::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
@@ -120,6 +128,7 @@ impl RenderState {
             })
         );
 
+        // Create bind group
         let camera_bind_group = device.create_bind_group(
             &(wgpu::BindGroupDescriptor {
                 layout: &camera_bind_group_layout,
@@ -133,11 +142,7 @@ impl RenderState {
             })
         );
 
-        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("../shader.wgsl").into()),
-        });
-
+        // Create pipeline layout
         let render_pipeline_layout = device.create_pipeline_layout(
             &(wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
@@ -145,9 +150,14 @@ impl RenderState {
                 push_constant_ranges: &[],
             })
         );
-        // Create depth texture
-        let depth_texture = Self::create_depth_texture(&device, &config);
 
+        // Create shader module
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../shader.wgsl").into()),
+        });
+
+        // Create render pipeline
         let render_pipeline = device.create_render_pipeline(
             &(wgpu::RenderPipelineDescriptor {
                 label: Some("Render Pipeline"),
@@ -192,6 +202,9 @@ impl RenderState {
                 multiview: None,
             })
         );
+
+        // Create depth texture
+        let depth_texture = Self::create_depth_texture(&device, &config);
 
         let mut all_vertices = Vec::new();
         for chunk in game_state.chunks().values() {
