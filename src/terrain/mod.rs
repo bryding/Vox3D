@@ -1,3 +1,2 @@
-mod generator;
-
-pub use generator::TerrainGenerator;
+pub mod generator;
+pub mod chunk;

@@ -7,16 +7,17 @@ use std::time::Instant;
 
 mod game;
 mod renderer;
+mod terrain;
 
 use game::GameState;
 use renderer::RenderState;
 
 async fn run() {
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().with_title("Minecraft Clone").build(&event_loop).unwrap();
+    let window = WindowBuilder::new().with_title("Vox3D").build(&event_loop).unwrap();
 
     let mut game_state = GameState::new();
-    let mut render_state = RenderState::new(&window).await;
+    let mut render_state = RenderState::new(&window, &game_state).await;
 
     window
         .set_cursor_grab(CursorGrabMode::Confined)

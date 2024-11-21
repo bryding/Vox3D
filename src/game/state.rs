@@ -1,6 +1,9 @@
 use cgmath::{ Point3, Vector3 };
 use winit::event::*;
+use std::collections::HashMap;
 
+use crate::terrain::generator::TerrainGenerator;
+use crate::terrain::chunk::Chunk;
 use super::camera_controller::CameraController;
 
 pub struct GameState {
@@ -8,15 +11,30 @@ pub struct GameState {
     camera_position: Point3<f32>,
     camera_direction: Vector3<f32>,
     camera_up: Vector3<f32>,
+    terrain_generator: TerrainGenerator,
+    chunks: HashMap<(i32, i32), Chunk>,
 }
 
 impl GameState {
     pub fn new() -> Self {
+        let terrain_generator = TerrainGenerator::new(42); // Using seed 42
+        let mut chunks = HashMap::new();
+
+        // Generate a 5x5 area of chunks centered on (0,0)
+        for chunk_x in -2..=2 {
+            for chunk_z in -2..=2 {
+                let voxels = terrain_generator.generate_chunk(chunk_x, chunk_z);
+                chunks.insert((chunk_x, chunk_z), Chunk::new(voxels, chunk_x, chunk_z));
+            }
+        }
+
         Self {
-            camera_controller: CameraController::new(5.0, 0.01),
-            camera_position: Point3::new(0.0, 0.0, 10.0),
-            camera_direction: Vector3::new(0.0, 0.0, -1.0),
+            camera_controller: CameraController::new(100.0, 0.1),
+            camera_position: Point3::new(0.0, 70.0, 0.0), // Start high up to see terrain
+            camera_direction: Vector3::new(0.0, -0.5, -1.0), // Look down and forward
             camera_up: Vector3::new(0.0, 1.0, 0.0),
+            terrain_generator,
+            chunks,
         }
     }
 
@@ -37,7 +55,10 @@ impl GameState {
         );
     }
 
-    // Getters for render system
+    pub fn chunks(&self) -> &HashMap<(i32, i32), Chunk> {
+        &self.chunks
+    }
+
     pub fn camera_position(&self) -> Point3<f32> {
         self.camera_position
     }

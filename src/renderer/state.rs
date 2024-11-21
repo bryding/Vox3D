@@ -1,5 +1,8 @@
 use wgpu::{ self, util::DeviceExt };
 use winit::window::Window;
+use crate::game::GameState;
+
+use super::mesh_generator::MeshGenerator;
 use super::{ camera::OPENGL_TO_WGPU_MATRIX, vertex::Vertex };
 use super::camera::Camera;
 use cgmath::{ perspective, Deg, Matrix4, Point3, SquareMatrix, Vector3 };
@@ -40,7 +43,7 @@ pub struct RenderState {
 }
 
 impl RenderState {
-    pub async fn new(window: &Window) -> Self {
+    pub async fn new(window: &Window, game_state: &GameState) -> Self {
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
@@ -190,24 +193,22 @@ impl RenderState {
             })
         );
 
-        // Create some test vertices for now
-        let vertices = vec![
-            Vertex::create_cube_vertices(0.0, 0.0, 0.0, [1.0, 0.0, 0.0]), // Red cube
-            Vertex::create_cube_vertices(1.0, 0.0, -1.0, [0.0, 1.0, 0.0]), // Green cube
-            Vertex::create_cube_vertices(-1.0, 0.0, -1.0, [0.0, 0.0, 1.0]), // Blue cube
-            Vertex::create_cube_vertices(0.0, 1.0, -0.5, [1.0, 1.0, 0.0]), // Yellow cube
-            Vertex::create_cube_vertices(0.0, -1.0, -0.5, [1.0, 0.0, 1.0]) // Purple cube
-        ].concat();
-
-        let num_vertices = vertices.len() as u32;
+        let mut all_vertices = Vec::new();
+        for chunk in game_state.chunks().values() {
+            all_vertices.extend(
+                MeshGenerator::generate_chunk_mesh(&chunk.voxels, chunk.chunk_x, chunk.chunk_z)
+            );
+        }
 
         let vertex_buffer = device.create_buffer_init(
             &(wgpu::util::BufferInitDescriptor {
                 label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
+                contents: bytemuck::cast_slice(&all_vertices),
                 usage: wgpu::BufferUsages::VERTEX,
             })
         );
+
+        let num_vertices = all_vertices.len() as u32;
 
         Self {
             surface,
