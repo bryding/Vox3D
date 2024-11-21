@@ -1,64 +1,86 @@
 use winit::{
     event::*,
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
+    event_loop::{ ControlFlow, EventLoop },
+    window::{ WindowBuilder, CursorGrabMode },
 };
+use std::time::Instant;
 
+mod game;
 mod renderer;
-mod terrain;
 
-use renderer::State;
-use terrain::TerrainGenerator;
+use game::GameState;
+use renderer::RenderState;
 
 async fn run() {
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_title("Minecraft Clone")
-        .build(&event_loop)
-        .unwrap();
+    let window = WindowBuilder::new().with_title("Minecraft Clone").build(&event_loop).unwrap();
 
-    let mut state = State::new(&window).await;
-    
+    let mut game_state = GameState::new();
+    let mut render_state = RenderState::new(&window).await;
+
+    window
+        .set_cursor_grab(CursorGrabMode::Confined)
+        .or_else(|_e| window.set_cursor_grab(CursorGrabMode::Locked))
+        .unwrap();
+    window.set_cursor_visible(false);
+
+    let mut last_update_time = Instant::now();
+
     event_loop.run(move |event, _, control_flow| {
         match event {
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } if window_id == window.id() => match event {
-                WindowEvent::CloseRequested
-                | WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
-                            state: ElementState::Pressed,
-                            virtual_keycode: Some(VirtualKeyCode::Escape),
-                            ..
-                        },
-                    ..
-                } => *control_flow = ControlFlow::Exit,
-                WindowEvent::Resized(physical_size) => {
-                    state.resize(*physical_size);
-                }
-                WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                    state.resize(**new_inner_size);
-                }
-                _ => {}
-            },
-            Event::RedrawRequested(window_id) if window_id == window.id() => {
-                match state.render() {
-                    Ok(_) => {}
-                    // Reconfigure the surface if it's lost or outdated
-                    Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                        state.resize(state.size)
+            Event::DeviceEvent { event: DeviceEvent::MouseMotion { delta }, .. } => {
+                game_state.handle_mouse_motion(delta.0, delta.1);
+            }
+            Event::WindowEvent { ref event, window_id } if window_id == window.id() => {
+                match event {
+                    WindowEvent::KeyboardInput {
+                        input: KeyboardInput { state, virtual_keycode: Some(keycode), .. },
+                        ..
+                    } => {
+                        if *keycode == VirtualKeyCode::Escape {
+                            *control_flow = ControlFlow::Exit;
+                        } else {
+                            game_state.handle_keyboard(*keycode, *state);
+                        }
                     }
-                    // The system is out of memory
-                    Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
-                    // All other errors (Timeout) should be resolved by the next frame
+                    WindowEvent::CloseRequested => {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                    WindowEvent::Resized(physical_size) => {
+                        render_state.resize(*physical_size);
+                    }
+                    WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                        render_state.resize(**new_inner_size);
+                    }
+                    _ => {}
+                }
+            }
+            Event::RedrawRequested(window_id) if window_id == window.id() => {
+                let now = Instant::now();
+                let dt = now - last_update_time;
+                last_update_time = now;
+
+                // Update game state
+                game_state.update(dt);
+
+                // Update render state with new camera data
+                render_state.update_camera(
+                    game_state.camera_position(),
+                    game_state.camera_direction(),
+                    game_state.camera_up()
+                );
+
+                // Render frame
+                match render_state.render() {
+                    Ok(_) => {}
+                    Err(wgpu::SurfaceError::Lost) => { render_state.resize(render_state.size) }
+                    Err(wgpu::SurfaceError::OutOfMemory) => {
+                        *control_flow = ControlFlow::Exit;
+                    }
                     Err(e) => eprintln!("{:?}", e),
                 }
             }
             Event::MainEventsCleared => {
-                // RedrawRequested will only trigger once, unless we manually
-                // request it.
                 window.request_redraw();
             }
             _ => {}

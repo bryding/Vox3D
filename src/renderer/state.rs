@@ -1,8 +1,8 @@
 use wgpu::{ self, util::DeviceExt };
 use winit::window::Window;
-use super::vertex::Vertex;
+use super::{ camera::OPENGL_TO_WGPU_MATRIX, vertex::Vertex };
 use super::camera::Camera;
-use cgmath::{ Matrix4, SquareMatrix };
+use cgmath::{ perspective, Deg, Matrix4, Point3, SquareMatrix, Vector3 };
 
 // This is the uniform buffer that will hold our camera matrix
 #[repr(C)]
@@ -23,7 +23,7 @@ impl CameraUniform {
     }
 }
 
-pub struct State {
+pub struct RenderState {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -39,7 +39,7 @@ pub struct State {
     depth_texture: wgpu::TextureView,
 }
 
-impl State {
+impl RenderState {
     pub async fn new(window: &Window) -> Self {
         let size = window.inner_size();
 
@@ -245,6 +245,30 @@ impl State {
                 bytemuck::cast_slice(&[self.camera_uniform])
             );
         }
+    }
+
+    pub fn update_camera(
+        &mut self,
+        position: Point3<f32>,
+        direction: Vector3<f32>,
+        up: Vector3<f32>
+    ) {
+        // Update camera uniform with new camera data
+        let view = Matrix4::look_to_rh(position, direction, up);
+        let proj = perspective(
+            Deg(45.0),
+            (self.size.width as f32) / (self.size.height as f32),
+            0.1,
+            100.0
+        );
+        self.camera_uniform.view_proj = (OPENGL_TO_WGPU_MATRIX * proj * view).into();
+
+        // Update GPU buffer
+        self.queue.write_buffer(
+            &self.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[self.camera_uniform])
+        );
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
