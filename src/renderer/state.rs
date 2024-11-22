@@ -240,6 +240,51 @@ impl RenderState {
         }
     }
 
+    pub fn update(&mut self, game_state: &GameState) {
+        // Update camera
+        self.update_camera(
+            game_state.camera_position(),
+            game_state.camera_direction(),
+            game_state.camera_up()
+        );
+
+        // Update camera position in uniform
+        self.camera_uniform.camera_pos = [
+            game_state.camera_position().x,
+            game_state.camera_position().y,
+            game_state.camera_position().z,
+        ];
+
+        // Write updated camera uniform to buffer
+        self.queue.write_buffer(
+            &self.camera_buffer,
+            0,
+            bytemuck::cast_slice(&[self.camera_uniform])
+        );
+
+        if game_state.chunks_updated() {
+            // Regenerate vertex buffer with current chunks
+            let mut all_vertices = Vec::new();
+            for chunk in game_state.chunks().values() {
+                all_vertices.extend(
+                    MeshGenerator::generate_chunk_mesh(&chunk.voxels, chunk.chunk_x, chunk.chunk_z)
+                );
+            }
+
+            // Only update if we have vertices
+            if !all_vertices.is_empty() {
+                self.vertex_buffer = self.device.create_buffer_init(
+                    &(wgpu::util::BufferInitDescriptor {
+                        label: Some("Vertex Buffer"),
+                        contents: bytemuck::cast_slice(&all_vertices),
+                        usage: wgpu::BufferUsages::VERTEX,
+                    })
+                );
+                self.num_vertices = all_vertices.len() as u32;
+            }
+        }
+    }
+
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;

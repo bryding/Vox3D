@@ -61,20 +61,16 @@ async fn run() {
                 let dt = now - last_update_time;
                 last_update_time = now;
 
-                // Update game state
+                // Update game state first
                 game_state.update(dt);
 
-                // Update render state with new camera data
-                render_state.update_camera(
-                    game_state.camera_position(),
-                    game_state.camera_direction(),
-                    game_state.camera_up()
-                );
+                // Update render state with new game state
+                render_state.update(&game_state);
 
-                // Render frame
+                // Render the frame
                 match render_state.render() {
                     Ok(_) => {}
-                    Err(wgpu::SurfaceError::Lost) => { render_state.resize(render_state.size) }
+                    Err(wgpu::SurfaceError::Lost) => render_state.resize(render_state.size),
                     Err(wgpu::SurfaceError::OutOfMemory) => {
                         *control_flow = ControlFlow::Exit;
                     }
