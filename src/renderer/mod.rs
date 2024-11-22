@@ -1,6 +1,6 @@
 mod camera;
-mod state;
+mod render_state;
 mod vertex;
 mod mesh_generator;
 
-pub use state::RenderState;
+pub use render_state::RenderState;

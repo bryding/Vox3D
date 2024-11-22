@@ -1,4 +1,4 @@
-mod state;
+mod game_state;
 mod camera_controller;
 
-pub use state::GameState;
+pub use game_state::GameState;
