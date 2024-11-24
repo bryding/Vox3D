@@ -33,15 +33,25 @@ impl TerrainGenerator {
         let max_height = 256;
         let mut voxels = vec![false; (chunk_size * chunk_size * max_height) as usize];
 
+        // Pre-calculate world coordinates for the chunk
+        let world_x_base = chunk_x * chunk_size;
+        let world_z_base = chunk_z * chunk_size;
+
+        // Generate heights first
+        let mut heights = vec![0; (chunk_size * chunk_size) as usize];
         for x in 0..chunk_size {
             for z in 0..chunk_size {
-                let world_x = chunk_x * chunk_size + x;
-                let world_z = chunk_z * chunk_size + z;
+                let height = self
+                    .get_height(world_x_base + x, world_z_base + z)
+                    .min(max_height - 1);
+                heights[(x as usize) + (z as usize) * (chunk_size as usize)] = height;
+            }
+        }
 
-                // Clamp height to max_height - 1 to avoid out-of-bounds access
-                let height = self.get_height(world_x, world_z).min(max_height - 1);
-
-                // Fill all blocks from 0 to height
+        // Fill voxels based on pre-calculated heights
+        for x in 0..chunk_size {
+            for z in 0..chunk_size {
+                let height = heights[(x as usize) + (z as usize) * (chunk_size as usize)];
                 for y in 0..=height {
                     let index = x + z * chunk_size + y * chunk_size * chunk_size;
                     voxels[index as usize] = true;

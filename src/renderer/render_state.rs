@@ -1,7 +1,10 @@
+use std::collections::HashMap;
+
 use wgpu::{ self, util::DeviceExt };
 use winit::window::Window;
 use crate::game::GameState;
 
+use super::chunk_mesh::ChunkMesh;
 use super::mesh_generator::MeshGenerator;
 use super::{ camera::OPENGL_TO_WGPU_MATRIX, vertex::Vertex };
 use super::camera::Camera;
@@ -45,6 +48,7 @@ pub struct RenderState {
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
     depth_texture: wgpu::TextureView,
+    chunk_meshes: HashMap<(i32, i32), ChunkMesh>,
 }
 
 impl RenderState {
@@ -237,51 +241,50 @@ impl RenderState {
             camera_buffer,
             camera_bind_group,
             depth_texture,
+            chunk_meshes: HashMap::new(),
         }
     }
 
     pub fn update(&mut self, game_state: &GameState) {
-        // Update camera
+        // Update camera (same as before)
         self.update_camera(
             game_state.camera_position(),
             game_state.camera_direction(),
             game_state.camera_up()
         );
 
-        // Update camera position in uniform
         self.camera_uniform.camera_pos = [
             game_state.camera_position().x,
             game_state.camera_position().y,
             game_state.camera_position().z,
         ];
 
-        // Write updated camera uniform to buffer
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
             bytemuck::cast_slice(&[self.camera_uniform])
         );
 
+        // Only update chunks that were modified
         if game_state.chunks_updated() {
-            // Regenerate vertex buffer with current chunks
-            let mut all_vertices = Vec::new();
-            for chunk in game_state.chunks().values() {
-                all_vertices.extend(
-                    MeshGenerator::generate_chunk_mesh(&chunk.voxels, chunk.chunk_x, chunk.chunk_z)
-                );
+            for (pos, chunk) in game_state.chunks() {
+                if !self.chunk_meshes.contains_key(pos) {
+                    // Generate mesh for new chunk
+                    let vertices = MeshGenerator::generate_chunk_mesh(
+                        &chunk.voxels,
+                        chunk.chunk_x,
+                        chunk.chunk_z
+                    );
+
+                    if !vertices.is_empty() {
+                        let chunk_mesh = ChunkMesh::new(&self.device, &vertices);
+                        self.chunk_meshes.insert(*pos, chunk_mesh);
+                    }
+                }
             }
 
-            // Only update if we have vertices
-            if !all_vertices.is_empty() {
-                self.vertex_buffer = self.device.create_buffer_init(
-                    &(wgpu::util::BufferInitDescriptor {
-                        label: Some("Vertex Buffer"),
-                        contents: bytemuck::cast_slice(&all_vertices),
-                        usage: wgpu::BufferUsages::VERTEX,
-                    })
-                );
-                self.num_vertices = all_vertices.len() as u32;
-            }
+            // Remove meshes for unloaded chunks
+            self.chunk_meshes.retain(|pos, _| game_state.chunks().contains_key(pos));
         }
     }
 
@@ -372,8 +375,12 @@ impl RenderState {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.draw(0..self.num_vertices, 0..1);
+
+            // Render each chunk separately
+            for chunk_mesh in self.chunk_meshes.values() {
+                render_pass.set_vertex_buffer(0, chunk_mesh.vertex_buffer.slice(..));
+                render_pass.draw(0..chunk_mesh.num_vertices, 0..1);
+            }
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -381,7 +388,6 @@ impl RenderState {
 
         Ok(())
     }
-
     fn create_depth_texture(
         device: &wgpu::Device,
         config: &wgpu::SurfaceConfiguration
