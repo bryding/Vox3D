@@ -215,16 +215,6 @@ impl RenderState {
             );
         }
 
-        let vertex_buffer = device.create_buffer_init(
-            &(wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&all_vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            })
-        );
-
-        let num_vertices = all_vertices.len() as u32;
-
         Self {
             surface,
             device,
@@ -232,8 +222,6 @@ impl RenderState {
             config,
             size,
             render_pipeline,
-            vertex_buffer,
-            num_vertices,
             camera,
             camera_uniform,
             camera_buffer,
