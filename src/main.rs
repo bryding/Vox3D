@@ -12,8 +12,10 @@ mod terrain;
 use game::GameState;
 use renderer::RenderState;
 
-// Add this to track if we're in game mode
 struct InputState {
+    // Used to track whether the game is active or not. When the game is active, the cursor is
+    // hidden and locked to the window, and the player can move the camera around.
+    // When the game is not active, the cursor is visible and the player can interact with the UI or exit the game.
     game_active: bool,
 }
 
@@ -28,7 +30,6 @@ async fn run() {
     let mut game_state = GameState::new();
     let mut render_state = RenderState::new(&window, &game_state).await;
 
-    // Track if we're in game mode
     let mut input_state = InputState {
         game_active: false,
     };

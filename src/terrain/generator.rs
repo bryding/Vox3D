@@ -33,7 +33,6 @@ impl TerrainGenerator {
         let max_height = 256;
         let mut voxels = vec![false; (chunk_size * chunk_size * max_height) as usize];
 
-        // Pre-calculate world coordinates for the chunk
         let world_x_base = chunk_x * chunk_size;
         let world_z_base = chunk_z * chunk_size;
 

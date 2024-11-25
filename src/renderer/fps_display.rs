@@ -1,4 +1,3 @@
-// src/renderer/fps_display.rs
 use std::time::Instant;
 
 pub struct FpsDisplay {

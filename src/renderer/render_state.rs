@@ -5,7 +5,7 @@ use wgpu_glyph::{ ab_glyph, GlyphBrush, GlyphBrushBuilder, Section, Text };
 use winit::window::Window;
 use crate::game::GameState;
 
-use super::fps_display::{ self, FpsDisplay };
+use super::fps_display::FpsDisplay;
 use super::chunk_mesh::ChunkMesh;
 use super::mesh_generator::MeshGenerator;
 use super::{ camera::OPENGL_TO_WGPU_MATRIX, vertex::Vertex };

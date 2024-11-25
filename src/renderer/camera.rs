@@ -1,4 +1,4 @@
-use cgmath::{perspective, Deg, Matrix4, Point3, Vector3};
+use cgmath::{ perspective, Deg, Matrix4, Point3, Vector3 };
 
 pub struct Camera {
     pub position: Point3<f32>,
@@ -13,10 +13,10 @@ pub struct Camera {
 impl Camera {
     pub fn new(width: u32, height: u32) -> Self {
         Self {
-            position: Point3::new(0.0, 0.0, 10.0),   // Start 10 units back
-            direction: Vector3::new(0.0, 0.0, -1.0), // Look forward
-            up: Vector3::new(0.0, 1.0, 0.0),         // Y is up
-            aspect: width as f32 / height as f32,
+            position: Point3::new(0.0, 0.0, 10.0), // Start 10 units back
+            direction: Vector3::new(0.0, 0.0, -1.0),
+            up: Vector3::new(0.0, 1.0, 0.0), // Y is up
+            aspect: (width as f32) / (height as f32),
             fovy: 45.0,
             znear: 0.1,
             zfar: 100.0,
@@ -35,7 +35,7 @@ impl Camera {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
-        self.aspect = width as f32 / height as f32;
+        self.aspect = (width as f32) / (height as f32);
     }
 }
 

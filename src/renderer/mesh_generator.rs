@@ -3,7 +3,7 @@ use super::vertex::Vertex;
 pub struct MeshGenerator;
 
 impl MeshGenerator {
-    // Create a single face of a cube
+    // Create a single face of a cube so we can optimize for not drawing every face
     fn create_face(pos: [f32; 3], normal: [f32; 3], color: [f32; 3]) -> Vec<Vertex> {
         let (x, y, z) = (pos[0], pos[1], pos[2]);
 
