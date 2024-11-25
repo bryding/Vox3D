@@ -6,9 +6,10 @@ edition = "2021"
 [dependencies]
 winit = "0.28"
 wgpu = "0.17"
+wgpu_glyph = "0.21"
 cgmath = "0.18"
 env_logger = "0.10"
 log = "0.4"
-pollster = "0.3"
+pollster = "0.4.0"
 bytemuck = { version = "1.12", features = [ "derive" ] }
-noise = "0.8"
+noise = "0.9.0"

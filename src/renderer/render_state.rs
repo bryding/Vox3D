@@ -1,9 +1,11 @@
 use std::collections::HashMap;
 
 use wgpu::{ self, util::DeviceExt };
+use wgpu_glyph::{ ab_glyph, GlyphBrush, GlyphBrushBuilder, Section, Text };
 use winit::window::Window;
 use crate::game::GameState;
 
+use super::fps_display::{ self, FpsDisplay };
 use super::chunk_mesh::ChunkMesh;
 use super::mesh_generator::MeshGenerator;
 use super::{ camera::OPENGL_TO_WGPU_MATRIX, vertex::Vertex };
@@ -47,6 +49,9 @@ pub struct RenderState {
     camera_bind_group: wgpu::BindGroup,
     depth_texture: wgpu::TextureView,
     chunk_meshes: HashMap<(i32, i32), ChunkMesh>,
+    fps_display: FpsDisplay,
+    glyph_brush: GlyphBrush<()>,
+    staging_belt: wgpu::util::StagingBelt,
 }
 
 impl RenderState {
@@ -214,6 +219,10 @@ impl RenderState {
                 MeshGenerator::generate_chunk_mesh(&chunk.voxels, chunk.chunk_x, chunk.chunk_z)
             );
         }
+        let font = ab_glyph::FontArc
+            ::try_from_slice(include_bytes!("../../assets/FiraSans-Regular.ttf"))
+            .unwrap();
+        let glyph_brush = GlyphBrushBuilder::using_font(font).build(&device, config.format);
 
         Self {
             surface,
@@ -228,6 +237,9 @@ impl RenderState {
             camera_bind_group,
             depth_texture,
             chunk_meshes: HashMap::new(),
+            fps_display: FpsDisplay::new(),
+            glyph_brush,
+            staging_belt: wgpu::util::StagingBelt::new(1024),
         }
     }
 
@@ -272,6 +284,9 @@ impl RenderState {
             // Remove meshes for unloaded chunks
             self.chunk_meshes.retain(|pos, _| game_state.chunks().contains_key(pos));
         }
+
+        // Update FPS display
+        self.fps_display.update();
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -369,11 +384,42 @@ impl RenderState {
             }
         }
 
+        self.render_fps_display(&mut encoder, &view);
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
         Ok(())
     }
+
+    fn render_fps_display(&mut self, encoder: &mut wgpu::CommandEncoder, view: &wgpu::TextureView) {
+        let scale = ((self.size.height as f32) / 40.0).round();
+
+        self.glyph_brush.queue(Section {
+            screen_position: ((self.size.width as f32) - 10.0, 10.0),
+            bounds: (self.size.width as f32, self.size.height as f32),
+            text: vec![
+                Text::new(&format!("FPS: {}", self.fps_display.fps()))
+                    .with_color([1.0, 1.0, 1.0, 1.0])
+                    .with_scale(scale)
+            ],
+            layout: wgpu_glyph::Layout::default().h_align(wgpu_glyph::HorizontalAlign::Right),
+            ..Section::default()
+        });
+
+        self.glyph_brush
+            .draw_queued(
+                &self.device,
+                &mut self.staging_belt,
+                encoder,
+                view,
+                self.size.width,
+                self.size.height
+            )
+            .expect("Failed to draw queued text");
+
+        self.staging_belt.finish();
+    }
+
     fn create_depth_texture(
         device: &wgpu::Device,
         config: &wgpu::SurfaceConfiguration
